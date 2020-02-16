@@ -1,9 +1,8 @@
 #include "chibi.h"
 
-// Node struct からアセンブリを作成する
-void gen(Node *node) {
+static void gen(Node *node) {
   if (node->kind == ND_NUM) {
-    printf("  push %d\n", node->val);
+    printf("  push %ld\n", node->val);
     return;
   }
 
@@ -57,8 +56,10 @@ void codegen(Node *node) {
   printf(".global main\n");
   printf("main:\n");
 
-  gen(node);
+  for (Node *n = node; n; n = n->next) {
+    gen(n);
+    printf("  pop rax\n");
+  }
 
-  printf("  pop rax\n");
   printf("  ret\n");
 }

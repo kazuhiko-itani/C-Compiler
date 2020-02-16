@@ -1,37 +1,59 @@
 #include "chibi.h"
 
-Node *new_node(NodeKind kind) {
+static Node *new_node(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
   return node;
 }
 
-Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+static Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
   Node *node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
-Node *new_num(int val) {
+static Node *new_num(long val) {
   Node *node = new_node(ND_NUM);
   node->val = val;
   return node;
 }
 
-Node *equality();
-Node *relational();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
+static Node *stmt(void);
+static Node *expr(void);
+static Node *equality(void);
+static Node *relational(void);
+static Node *add(void);
+static Node *mul(void);
+static Node *unary(void);
+static Node *primary(void);
 
-// globalなTokenを再帰的にparseして、Nodeをreturnする
-Node *expr() {
+// program = stmt*
+Node *program(void) {
+  Node head = {};
+  Node *cur = &head;
+
+  while (!at_eof()) {
+    cur->next = stmt();
+    cur = cur->next;
+  }
+  return head.next;
+}
+
+// stmt = expr ";"
+static Node *stmt(void) {
+  Node *node = expr();
+  expect(";");
+  return node;
+}
+
+// expr = equality
+static Node *expr(void) {
   return equality();
 }
 
-Node *equality() {
+// equality = relational ("==" relational | "!=" relational)*
+static Node *equality(void) {
   Node *node = relational();
 
   for (;;) {
@@ -44,7 +66,8 @@ Node *equality() {
   }
 }
 
-Node *relational() {
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+static Node *relational(void) {
   Node *node = add();
 
   for (;;) {
@@ -61,7 +84,8 @@ Node *relational() {
   }
 }
 
-Node *add() {
+// add = mul ("+" mul | "-" mul)*
+static Node *add(void) {
   Node *node = mul();
 
   for (;;) {
@@ -74,10 +98,11 @@ Node *add() {
   }
 }
 
-Node *mul() {
+// mul = unary ("*" unary | "/" unary)*
+static Node *mul(void) {
   Node *node = unary();
 
-  for(;;) {
+  for (;;) {
     if (consume("*"))
       node = new_binary(ND_MUL, node, unary());
     else if (consume("/"))
@@ -87,15 +112,18 @@ Node *mul() {
   }
 }
 
-Node *unary() {
+// unary = ("+" | "-")? unary
+//       | primary
+static Node *unary(void) {
   if (consume("+"))
-    return primary();
+    return unary();
   if (consume("-"))
     return new_binary(ND_SUB, new_num(0), unary());
   return primary();
 }
 
-Node *primary() {
+// primary = "(" expr ")" | num
+static Node *primary(void) {
   if (consume("(")) {
     Node *node = expr();
     expect(")");

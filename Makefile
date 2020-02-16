@@ -1,16 +1,16 @@
-CFLAGS=-std=c11 -g -static
+CFLAGS=-std=c11 -g -static -fno-common
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
 
-9cc: $(OBJS)
-				$(CC) -o $@ $(OBJS) $(LDFLAGS)
+chibi: $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
 $(OBJS): chibi.h
 
-test: 9cc
-				./test.sh
+test: chibi
+	./test.sh
 
 clean:
-			rm -f 9cc *.o *~ tmp*
+	rm -f chibi *.o *~ tmp*
 
 .PHONY: test clean
