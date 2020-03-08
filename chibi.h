@@ -68,6 +68,7 @@ typedef enum {
   ND_IF,        // if
   ND_WHILE,     // while
   ND_FOR,       // for
+  ND_BLOCK,     // { ... }
 } NodeKind;
 
 // AST node type
@@ -82,6 +83,7 @@ struct Node {
   Node *els;     // "if" or "while" or "for" statement
   Node *init;    // "for" statement
   Node *inc;     // "for" statement
+  Node *body;    // Block
   char name;     // Used if kind == ND_VAR
   Var *var;      // Used if kind == ND_VAR
   long val;      // Used if kind == ND_NUM
