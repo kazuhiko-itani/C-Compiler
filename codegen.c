@@ -1,8 +1,11 @@
 #include "chibi.h"
 
-static int labelseq = 1;
 static char *argreg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
+static int labelseq = 1;
+static char *funcname;
+
+// Pushes the given node's address to the stack.
 static void gen_addr(Node *node) {
   if (node->kind == ND_VAR) {
     printf("  lea rax, [rbp-%d]\n", node->var->offset);
@@ -26,6 +29,7 @@ static void store(void) {
   printf("  push rdi\n");
 }
 
+// Generate code for a given node.
 static void gen(Node *node) {
   switch (node->kind) {
   case ND_NUM:
@@ -34,11 +38,6 @@ static void gen(Node *node) {
   case ND_EXPR_STMT:
     gen(node->lhs);
     printf("  add rsp, 8\n");
-    return;
-  case ND_RETURN:
-    gen(node->lhs);
-    printf("  pop rax\n");
-    printf("  jmp .L.return\n");
     return;
   case ND_VAR:
     gen_addr(node);
@@ -55,23 +54,22 @@ static void gen(Node *node) {
       gen(node->cond);
       printf("  pop rax\n");
       printf("  cmp rax, 0\n");
-      printf("  je .L.else.%d\n", seq);
+      printf("  je  .L.else.%d\n", seq);
       gen(node->then);
       printf("  jmp .L.end.%d\n", seq);
-      printf("  .L.else.%d:\n", seq);
+      printf(".L.else.%d:\n", seq);
       gen(node->els);
-      printf("  .L.end.%d:\n", seq);
+      printf(".L.end.%d:\n", seq);
     } else {
       gen(node->cond);
       printf("  pop rax\n");
       printf("  cmp rax, 0\n");
-      printf("  je .L.end.%d\n", seq);
+      printf("  je  .L.end.%d\n", seq);
       gen(node->then);
-      printf("  .L.end.%d:\n", seq);
+      printf(".L.end.%d:\n", seq);
     }
     return;
   }
-
   case ND_WHILE: {
     int seq = labelseq++;
     printf(".L.begin.%d:\n", seq);
@@ -84,7 +82,6 @@ static void gen(Node *node) {
     printf(".L.end.%d:\n", seq);
     return;
   }
-
   case ND_FOR: {
     int seq = labelseq++;
     if (node->init)
@@ -96,7 +93,6 @@ static void gen(Node *node) {
       printf("  cmp rax, 0\n");
       printf("  je  .L.end.%d\n", seq);
     }
-
     gen(node->then);
     if (node->inc)
       gen(node->inc);
@@ -104,13 +100,10 @@ static void gen(Node *node) {
     printf(".L.end.%d:\n", seq);
     return;
   }
-
-  case ND_BLOCK: {
+  case ND_BLOCK:
     for (Node *n = node->body; n; n = n->next)
       gen(n);
     return;
-  }
-
   case ND_FUNCALL: {
     int nargs = 0;
     for (Node *arg = node->args; arg; arg = arg->next) {
@@ -140,6 +133,11 @@ static void gen(Node *node) {
     printf("  push rax\n");
     return;
   }
+  case ND_RETURN:
+    gen(node->lhs);
+    printf("  pop rax\n");
+    printf("  jmp .L.return.%s\n", funcname);
+    return;
   }
 
   gen(node->lhs);
@@ -189,18 +187,32 @@ static void gen(Node *node) {
 
 void codegen(Function *prog) {
   printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
 
-  printf("  push rbp\n");
-  printf("  mov rbp, rsp\n");
-  printf("  sub rsp, %d\n", prog->stack_size);
+  for (Function *fn = prog; fn; fn = fn->next) {
+    printf(".global %s\n", fn->name);
+    printf("%s:\n", fn->name);
+    funcname = fn->name;
 
-  for (Node *node = prog->node; node; node = node->next)
-    gen(node);
+    // Prologue
+    printf("  push rbp\n");
+    printf("  mov rbp, rsp\n");
+    printf("  sub rsp, %d\n", fn->stack_size);
 
-  printf(".L.return:\n");
-  printf("  mov rsp, rbp\n");
-  printf("  pop rbp\n");
-  printf("  ret\n");
+    // Push arguments to the stack
+    int i = 0;
+    for (VarList *vl = fn->params; vl; vl = vl->next) {
+      Var *var = vl->var;
+      printf("  mov [rbp-%d], %s\n", var->offset, argreg[i++]);
+    }
+
+    // Emit code
+    for (Node *node = fn->node; node; node = node->next)
+      gen(node);
+
+    // Epilogue
+    printf(".L.return.%s:\n", funcname);
+    printf("  mov rsp, rbp\n");
+    printf("  pop rbp\n");
+    printf("  ret\n");
+  }
 }

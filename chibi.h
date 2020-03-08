@@ -10,9 +10,10 @@
 // tokenize.c
 //
 
+// Token
 typedef enum {
   TK_RESERVED, // Keywords or punctuators
-  TK_IDENT,
+  TK_IDENT,    // Identifiers
   TK_NUM,      // Integer literals
   TK_EOF,      // End-of-file markers
 } TokenKind;
@@ -33,6 +34,7 @@ bool consume(char *op);
 Token *consume_ident(void);
 void expect(char *op);
 long expect_number(void);
+char *expect_ident(void);
 bool at_eof(void);
 Token *tokenize(void);
 
@@ -43,14 +45,20 @@ extern Token *token;
 // parse.c
 //
 
-// 変数
+// Local variable
 typedef struct Var Var;
 struct Var {
-  Var *next;
-  char *name;
-  int offset; // RBPからの距離
+  char *name; // Variable name
+  int offset; // Offset from RBP
 };
 
+typedef struct VarList VarList;
+struct VarList {
+  VarList *next;
+  Var *var;
+};
+
+// AST node
 typedef enum {
   ND_ADD,       // +
   ND_SUB,       // -
@@ -62,41 +70,51 @@ typedef enum {
   ND_LE,        // <=
   ND_ASSIGN,    // =
   ND_RETURN,    // "return"
+  ND_IF,        // "if"
+  ND_WHILE,     // "while"
+  ND_FOR,       // "for"
+  ND_BLOCK,     // { ... }
+  ND_FUNCALL,   // Function call
   ND_EXPR_STMT, // Expression statement
   ND_VAR,       // Variable
   ND_NUM,       // Integer
-  ND_IF,        // if
-  ND_WHILE,     // while
-  ND_FOR,       // for
-  ND_BLOCK,     // { ... }
-  ND_FUNCALL,   // Function call
 } NodeKind;
 
 // AST node type
 typedef struct Node Node;
 struct Node {
-  NodeKind kind;    // Node kind
-  Node *next;       // Next node
-  Node *lhs;        // Left-hand side
-  Node *rhs;        // Right-hand side
-  Node *cond;       // "if" or "while" or "for" statement
-  Node *then;       // "if" or "while" or "for" statement
-  Node *els;        // "if" or "while" or "for" statement
-  Node *init;       // "for" statement
-  Node *inc;        // "for" statement
-  Node *body;       // Block
-  char name;        // Used if kind == ND_VAR
-  char *funcname;   // Function call
-  Node *args;       // Function call
-  Var *var;         // Used if kind == ND_VAR
-  long val;         // Used if kind == ND_NUM
+  NodeKind kind; // Node kind
+  Node *next;    // Next node
+
+  Node *lhs;     // Left-hand side
+  Node *rhs;     // Right-hand side
+
+  // "if, "while" or "for" statement
+  Node *cond;
+  Node *then;
+  Node *els;
+  Node *init;
+  Node *inc;
+
+  // Block
+  Node *body;
+
+  // Function call
+  char *funcname;
+  Node *args;
+
+  Var *var;      // Used if kind == ND_VAR
+  long val;      // Used if kind == ND_NUM
 };
 
-// 関数
 typedef struct Function Function;
 struct Function {
+  Function *next;
+  char *name;
+  VarList *params;
+
   Node *node;
-  Var *locals;
+  VarList *locals;
   int stack_size;
 };
 

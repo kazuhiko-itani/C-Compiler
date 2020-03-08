@@ -35,7 +35,7 @@ bool consume(char *op) {
   return true;
 }
 
-// 変数かどうかを確認し、変数ならばトークンポインタを一つ進めて現在のトークンを返却する
+// Consumes the current token if it is an identifier.
 Token *consume_ident(void) {
   if (token->kind != TK_IDENT)
     return NULL;
@@ -59,6 +59,15 @@ long expect_number(void) {
   long val = token->val;
   token = token->next;
   return val;
+}
+
+// Ensure that the current token is TK_IDENT.
+char *expect_ident(void) {
+  if (token->kind != TK_IDENT)
+    error_at(token->str, "expected an identifier");
+  char *s = strndup(token->str, token->len);
+  token = token->next;
+  return s;
 }
 
 bool at_eof(void) {
@@ -88,6 +97,7 @@ static bool is_alnum(char c) {
 }
 
 static char *starts_with_reserved(char *p) {
+  // Keyword
   static char *kw[] = {"return", "if", "else", "while", "for"};
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
@@ -96,11 +106,12 @@ static char *starts_with_reserved(char *p) {
       return kw[i];
   }
 
+  // Multi-letter punctuator
   static char *ops[] = {"==", "!=", "<=", ">="};
-  for (int i = 0; i < sizeof(ops) / sizeof(*ops); i++) {
+
+  for (int i = 0; i < sizeof(ops) / sizeof(*ops); i++)
     if (startswith(p, ops[i]))
       return ops[i];
-  }
 
   return NULL;
 }
@@ -127,6 +138,7 @@ Token *tokenize(void) {
       continue;
     }
 
+    // Identifier
     if (is_alpha(*p)) {
       char *q = p++;
       while (is_alnum(*p))

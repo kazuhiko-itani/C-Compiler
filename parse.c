@@ -1,13 +1,16 @@
 #include "chibi.h"
 
-// プログラム全体に含まれる変数を格納するグローバル変数
-Var *locals;
+// All local variable instances created during parsing are
+// accumulated to this list.
+static VarList *locals;
 
-// localsに格納済みの変数かどうかをチェックする
+// Find a local variable by name.
 static Var *find_var(Token *tok) {
-  for (Var *var = locals; var; var = var->next)
+  for (VarList *vl = locals; vl; vl = vl->next) {
+    Var *var = vl->var;
     if (strlen(var->name) == tok->len && !strncmp(tok->str, var->name, tok->len))
       return var;
+  }
   return NULL;
 }
 
@@ -44,12 +47,16 @@ static Node *new_var_node(Var *var) {
 
 static Var *new_lvar(char *name) {
   Var *var = calloc(1, sizeof(Var));
-  var->next = locals;
   var->name = name;
-  locals = var;
+
+  VarList *vl = calloc(1, sizeof(VarList));
+  vl->var = var;
+  vl->next = locals;
+  locals = vl;
   return var;
 }
 
+static Function *function(void);
 static Node *stmt(void);
 static Node *expr(void);
 static Node *assign(void);
@@ -60,22 +67,57 @@ static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
 
-// program = stmt*
+// program = function*
 Function *program(void) {
+  Function head = {};
+  Function *cur = &head;
+
+  while (!at_eof()) {
+    cur->next = function();
+    cur = cur->next;
+  }
+  return head.next;
+}
+
+static VarList *read_func_params(void) {
+  if (consume(")"))
+    return NULL;
+
+  VarList *head = calloc(1, sizeof(VarList));
+  head->var = new_lvar(expect_ident());
+  VarList *cur = head;
+
+  while (!consume(")")) {
+    expect(",");
+    cur->next = calloc(1, sizeof(VarList));
+    cur->next->var = new_lvar(expect_ident());
+    cur = cur->next;
+  }
+
+  return head;
+}
+
+// function = ident "(" params? ")" "{" stmt* "}"
+// params   = ident ("," ident)*
+static Function *function(void) {
   locals = NULL;
+
+  Function *fn = calloc(1, sizeof(Function));
+  fn->name = expect_ident();
+  expect("(");
+  fn->params = read_func_params();
+  expect("{");
 
   Node head = {};
   Node *cur = &head;
-
-  while (!at_eof()) {
+  while (!consume("}")) {
     cur->next = stmt();
     cur = cur->next;
   }
 
-  Function *prog = calloc(1, sizeof(Function));
-  prog->node = head.next;
-  prog->locals = locals;
-  return prog;
+  fn->node = head.next;
+  fn->locals = locals;
+  return fn;
 }
 
 static Node *read_expr_stmt(void) {
@@ -83,10 +125,11 @@ static Node *read_expr_stmt(void) {
 }
 
 // stmt = "return" expr ";"
-//        | "if" "(" expr ")" stmt ("else" stmt)?
-//        | "while" "(" expr ")" stmt
-//        | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-//        | "{" stmt* "}"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "while" "(" expr ")" stmt
+//      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//      | "{" stmt* "}"
+//      | expr ";"
 static Node *stmt(void) {
   if (consume("return")) {
     Node *node = new_unary(ND_RETURN, expr());
@@ -121,17 +164,14 @@ static Node *stmt(void) {
       node->init = read_expr_stmt();
       expect(";");
     }
-
     if (!consume(";")) {
       node->cond = expr();
       expect(";");
     }
-
     if (!consume(")")) {
       node->inc = read_expr_stmt();
       expect(")");
     }
-
     node->then = stmt();
     return node;
   }
@@ -160,7 +200,7 @@ static Node *expr(void) {
   return assign();
 }
 
-// 代入式
+// assign = equality ("=" assign)?
 static Node *assign(void) {
   Node *node = equality();
   if (consume("="))
@@ -254,7 +294,6 @@ static Node *func_args(void) {
 }
 
 // primary = "(" expr ")" | ident func-args? | num
-// args = "(" ")"
 static Node *primary(void) {
   if (consume("(")) {
     Node *node = expr();
@@ -270,7 +309,7 @@ static Node *primary(void) {
       node->funcname = strndup(tok->str, tok->len);
       node->args = func_args();
       return node;
-     }
+    }
 
     // Variable
     Var *var = find_var(tok);
