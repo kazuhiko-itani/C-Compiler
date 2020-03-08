@@ -238,7 +238,23 @@ static Node *unary(void) {
   return primary();
 }
 
-// 終端記号(1,9 etc...)
+// func-args = "(" (assign ("," assign)*)? ")"
+static Node *func_args(void) {
+  if (consume(")"))
+    return NULL;
+
+  Node *head = assign();
+  Node *cur = head;
+  while (consume(",")) {
+    cur->next = assign();
+    cur = cur->next;
+  }
+  expect(")");
+  return head;
+}
+
+// primary = "(" expr ")" | ident func-args? | num
+// args = "(" ")"
 static Node *primary(void) {
   if (consume("(")) {
     Node *node = expr();
@@ -248,6 +264,15 @@ static Node *primary(void) {
 
   Token *tok = consume_ident();
   if (tok) {
+    // Function call
+    if (consume("(")) {
+      Node *node = new_node(ND_FUNCALL);
+      node->funcname = strndup(tok->str, tok->len);
+      node->args = func_args();
+      return node;
+     }
+
+    // Variable
     Var *var = find_var(tok);
     if (!var)
       var = new_lvar(strndup(tok->str, tok->len));

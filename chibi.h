@@ -69,24 +69,27 @@ typedef enum {
   ND_WHILE,     // while
   ND_FOR,       // for
   ND_BLOCK,     // { ... }
+  ND_FUNCALL,   // Function call
 } NodeKind;
 
 // AST node type
 typedef struct Node Node;
 struct Node {
-  NodeKind kind; // Node kind
-  Node *next;    // Next node
-  Node *lhs;     // Left-hand side
-  Node *rhs;     // Right-hand side
-  Node *cond;    // "if" or "while" or "for" statement
-  Node *then;    // "if" or "while" or "for" statement
-  Node *els;     // "if" or "while" or "for" statement
-  Node *init;    // "for" statement
-  Node *inc;     // "for" statement
-  Node *body;    // Block
-  char name;     // Used if kind == ND_VAR
-  Var *var;      // Used if kind == ND_VAR
-  long val;      // Used if kind == ND_NUM
+  NodeKind kind;    // Node kind
+  Node *next;       // Next node
+  Node *lhs;        // Left-hand side
+  Node *rhs;        // Right-hand side
+  Node *cond;       // "if" or "while" or "for" statement
+  Node *then;       // "if" or "while" or "for" statement
+  Node *els;        // "if" or "while" or "for" statement
+  Node *init;       // "for" statement
+  Node *inc;        // "for" statement
+  Node *body;       // Block
+  char name;        // Used if kind == ND_VAR
+  char *funcname;   // Function call
+  Node *args;       // Function call
+  Var *var;         // Used if kind == ND_VAR
+  long val;         // Used if kind == ND_NUM
 };
 
 // 関数
