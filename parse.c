@@ -84,6 +84,7 @@ static Node *read_expr_stmt(void) {
 
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "while" "(" expr ")" stmt
 static Node *stmt(void) {
   if (consume("return")) {
     Node *node = new_unary(ND_RETURN, expr());
@@ -99,6 +100,15 @@ static Node *stmt(void) {
     node->then = stmt();
     if (consume("else"))
       node->els = stmt();
+    return node;
+  }
+
+  if (consume("while")) {
+    Node *node = new_node(ND_WHILE);
+    expect("(");
+    node->cond = expr();
+    expect(")");
+    node->then = stmt();
     return node;
   }
 
