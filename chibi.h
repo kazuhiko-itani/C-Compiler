@@ -65,6 +65,7 @@ typedef enum {
   ND_EXPR_STMT, // Expression statement
   ND_VAR,       // Variable
   ND_NUM,       // Integer
+  ND_IF,        // if
 } NodeKind;
 
 // AST node type
@@ -74,6 +75,9 @@ struct Node {
   Node *next;    // Next node
   Node *lhs;     // Left-hand side
   Node *rhs;     // Right-hand side
+  Node *cond;    // "if" statement
+  Node *then;    // "if" statement
+  Node *els;     // "if" statement
   char name;     // Used if kind == ND_VAR
   Var *var;      // Used if kind == ND_VAR
   long val;      // Used if kind == ND_NUM
